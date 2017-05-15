@@ -1,14 +1,14 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26114.2
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatsdClient.Tests", "tests\StatsdClient.Tests\StatsdClient.Tests.xproj", "{C4355D8F-BAB4-4C53-8E10-3CBB571B6F05}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatsdClient.Tests", "tests\StatsdClient.Tests\StatsdClient.Tests.csproj", "{C4355D8F-BAB4-4C53-8E10-3CBB571B6F05}"
 	ProjectSection(ProjectDependencies) = postProject
 		{1701B62F-1078-4748-9D7A-F1EABC703971} = {1701B62F-1078-4748-9D7A-F1EABC703971}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatsdClient", "src\StatsdClient\StatsdClient.xproj", "{1701B62F-1078-4748-9D7A-F1EABC703971}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatsdClient", "src\StatsdClient\StatsdClient.csproj", "{1701B62F-1078-4748-9D7A-F1EABC703971}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
