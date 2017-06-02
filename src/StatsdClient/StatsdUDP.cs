@@ -8,6 +8,19 @@ namespace StatsdClient
 {
     public class StatsdUDP : IDisposable, IStatsdUDP
     {
+        static readonly bool _sendAsync;
+
+        static StatsdUDP()
+        {
+            _sendAsync = true;
+            var sendAsyncVar = Environment.GetEnvironmentVariable("DogStatsD_SendAsync");
+            bool sendAsync;
+            if (sendAsyncVar != null && bool.TryParse(sendAsyncVar, out sendAsync))
+            {
+                _sendAsync = sendAsync;
+            }
+        }
+
         private int MaxUDPPacketSize { get; set; } // In bytes; default is MetricsConfig.DefaultStatsdMaxUDPPacketSize.
         // Set to zero for no limit.
         public IPEndPoint IPEndpoint { get; private set; }
@@ -91,7 +104,18 @@ namespace StatsdClient
                     // be sent without issue.
                 }
             }
-            UDPSocket.SendTo(encodedCommand, encodedCommand.Length, SocketFlags.None, IPEndpoint);
+            if (_sendAsync)
+            {
+#if NET451
+                UDPSocket.BeginSendTo(encodedCommand, 0, encodedCommand.Length, SocketFlags.None, IPEndpoint, null, null);
+#else
+                UDPSocket.SendToAsync(new ArraySegment<byte>(encodedCommand), SocketFlags.None, IPEndpoint);
+#endif
+            }
+            else
+            {
+                UDPSocket.SendTo(encodedCommand, encodedCommand.Length, SocketFlags.None, IPEndpoint);
+            }
         }
 
         public void Dispose()
