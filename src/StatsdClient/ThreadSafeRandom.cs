@@ -9,7 +9,7 @@ namespace StatsdClient
         [ThreadStatic]
         private static Random _local;
 
-        private Random Local
+        internal static Random Local
         {
             get
             {

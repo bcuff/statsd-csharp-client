@@ -3,28 +3,37 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StatsdClient
 {
     public class StatsdUDP : IDisposable, IStatsdUDP
     {
-        static readonly bool _sendAsync;
+        static readonly int _socketCount;
 
         static StatsdUDP()
         {
-            _sendAsync = true;
-            var sendAsyncVar = Environment.GetEnvironmentVariable("DogStatsD_SendAsync");
-            bool sendAsync;
-            if (sendAsyncVar != null && bool.TryParse(sendAsyncVar, out sendAsync))
+            var socketsPerCore = 1;
+            var socketsPerCoreVar = Environment.GetEnvironmentVariable("DogStatsD_SocketsPerCore");
+            int tempSocketsPerCore;
+            if (socketsPerCoreVar != null && int.TryParse(socketsPerCoreVar, out tempSocketsPerCore))
             {
-                _sendAsync = sendAsync;
+                socketsPerCore = tempSocketsPerCore;
+            }
+            if (socketsPerCore > 0)
+            {
+                _socketCount = socketsPerCore * Environment.ProcessorCount;
+            }
+            else
+            {
+                _socketCount = 1;
             }
         }
 
         private int MaxUDPPacketSize { get; set; } // In bytes; default is MetricsConfig.DefaultStatsdMaxUDPPacketSize.
         // Set to zero for no limit.
         public IPEndPoint IPEndpoint { get; private set; }
-        private Socket UDPSocket { get; set; }
+        private Socket[] UDPSockets { get; set; }
         private string Name { get; set; }
         private int Port { get; set; }
 
@@ -34,15 +43,20 @@ namespace StatsdClient
             Port = port;
             MaxUDPPacketSize = maxUDPPacketSize;
 
-            UDPSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            if (sendBufferSize != null)
+            UDPSockets = Enumerable.Range(0, _socketCount).Select(i =>
             {
-                UDPSocket.SendBufferSize = sendBufferSize.Value;
-            }
+                var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                if (sendBufferSize != null)
+                {
+                    socket.SendBufferSize = sendBufferSize.Value;
+                }
+                return socket;
+            })
+            .ToArray();
 
-            var ipAddress = GetIpv4Address(name);
+                var ipAddress = GetIpv4Address(name);
 
-            IPEndpoint = new IPEndPoint(ipAddress, Port);
+                IPEndpoint = new IPEndPoint(ipAddress, Port);
         }
 
         private IPAddress GetIpv4Address(string name)
@@ -104,23 +118,18 @@ namespace StatsdClient
                     // be sent without issue.
                 }
             }
-            if (_sendAsync)
-            {
-#if NET451
-                UDPSocket.BeginSendTo(encodedCommand, 0, encodedCommand.Length, SocketFlags.None, IPEndpoint, null, null);
-#else
-                UDPSocket.SendToAsync(new ArraySegment<byte>(encodedCommand), SocketFlags.None, IPEndpoint);
-#endif
-            }
-            else
-            {
-                UDPSocket.SendTo(encodedCommand, encodedCommand.Length, SocketFlags.None, IPEndpoint);
-            }
+
+            // using multiple sockets reduces contention
+            var socket = UDPSockets.Length == 1 ? UDPSockets[0] : UDPSockets[ThreadSafeRandom.Local.Next() % UDPSockets.Length];
+            socket.SendTo(encodedCommand, encodedCommand.Length, SocketFlags.None, IPEndpoint);
         }
 
         public void Dispose()
         {
-            UDPSocket.Dispose();
+            foreach (var socket in UDPSockets)
+            {
+                socket.Dispose();
+            }
         }
     }
 }
